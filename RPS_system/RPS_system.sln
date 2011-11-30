@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RPS_server", "RPS_server\RPS_server.csproj", "{95549CE7-4FDF-49B5-B088-C9D78FCE6CDF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RockPaperScissors", "RockPaperScissors\RockPaperScissors.csproj", "{2106EFDD-B973-4759-8003-F68753703125}"
+EndProject
+Global
+	GlobalSection(SubversionScc) = preSolution
+		Svn-Managed = True
+		Manager = AnkhSVN - Subversion Support for Visual Studio
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{95549CE7-4FDF-49B5-B088-C9D78FCE6CDF}.Debug|x86.ActiveCfg = Debug|x86
+		{95549CE7-4FDF-49B5-B088-C9D78FCE6CDF}.Debug|x86.Build.0 = Debug|x86
+		{95549CE7-4FDF-49B5-B088-C9D78FCE6CDF}.Release|x86.ActiveCfg = Release|x86
+		{95549CE7-4FDF-49B5-B088-C9D78FCE6CDF}.Release|x86.Build.0 = Release|x86
+		{2106EFDD-B973-4759-8003-F68753703125}.Debug|x86.ActiveCfg = Debug|x86
+		{2106EFDD-B973-4759-8003-F68753703125}.Debug|x86.Build.0 = Debug|x86
+		{2106EFDD-B973-4759-8003-F68753703125}.Release|x86.ActiveCfg = Release|x86
+		{2106EFDD-B973-4759-8003-F68753703125}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
