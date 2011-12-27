@@ -42,6 +42,7 @@ namespace RockPaperScissorsGUI
 
         public Form1()
         {
+            cMove = 0;
             InitializeComponent();
             rand = new Random();//create the RNG instance
             Application.ApplicationExit +=new EventHandler(OnApplicationExit);
@@ -81,18 +82,19 @@ namespace RockPaperScissorsGUI
         }
 
         private void findWinner(){
-
+            bool loop = true;
             if (Connected)
             {
                 SendMove();
-                //cMove = ReceiveMove();//causes app freeze until move received
+                while(cMove == 0)
+                    cMove = ReceiveMove();//causes app freeze until move received
             }
             //else
             if (!Connected)
                 cMove = rand.Next(1, 3);
             //do
             //{
-            while (cMove == 0) { }
+            while (loop) { 
                 if (cMove != 0)
                 {
                     //game logic
@@ -102,13 +104,14 @@ namespace RockPaperScissorsGUI
                     else if (((cMove > pMove) && ((cMove - pMove) < 2))
                         || ((cMove < pMove) && (pMove - cMove) > 1))
                     {
-                        txtResult.Text = (choices)cMove + " beats " + (choices)pMove + " \r\nComputer Wins!!!";
+                        txtResult.Text = (choices)cMove + " beats " + (choices)pMove + " \r\nOpponent Wins!!!";
                     }
                     else
                         txtResult.Text = (choices)pMove + " beats " + (choices)cMove + " \r\nYou Win!!!";
                     cMove = 0;
+                    loop = false;
                 }
-            //}
+            }
             //while (cMove == 0);
         }
 
@@ -119,7 +122,7 @@ namespace RockPaperScissorsGUI
             //TcpClient client = listener.AcceptTcpClient();
 
             // Parse the IP address from the TextBox into an IPAddress object
-            ipAddr = IPAddress.Parse("127.0.0.1");
+            ipAddr = IPAddress.Parse(textBox2.Text);//"127.0.0.1");
 
             // Start a new TCP connections to the chat server
             tcpServer = new TcpClient();

@@ -53,8 +53,12 @@ namespace RPS_server
 
         public void mainServer_StatusChanged(object sender, StatusChangedEventArgs e)
         {
-            // Call the method that updates the form
-            this.Invoke(new UpdateStatusCallback(this.UpdateStatus), new object[] { e.EventMessage });
+            try
+            {
+                // Call the method that updates the form
+                this.Invoke(new UpdateStatusCallback(this.UpdateStatus), new object[] { e.EventMessage });
+            }
+            catch (Exception ex) { System.Console.WriteLine(ex); }
         }
 
         private void UpdateStatus(string strMessage)
