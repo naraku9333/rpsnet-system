@@ -34,21 +34,30 @@ namespace RPS_server
 
         private void btnStartListening_Click(object sender, EventArgs e)
         {
-            //string txtIp = "127.0.0.1";
-            // Parse the server's IP address out of the TextBox
-            IPAddress ipAddr = IPAddress.Parse(txtIp.Text.ToString());
+            if (btnStartListening.Text.ToString() == "Start Listening")
+            {
+                //string txtIp = "127.0.0.1";
+                // Parse the server's IP address out of the TextBox
+                IPAddress ipAddr = IPAddress.Parse(txtIp.Text.ToString());
 
-            // Create a new instance of the ChatServer object
-            mainServer = new ChatServer(ipAddr);
+                // Create a new instance of the ChatServer object
+                mainServer = new ChatServer(ipAddr);
 
-            // Hook the StatusChanged event handler to mainServer_StatusChanged
-            ChatServer.StatusChanged += new StatusChangedEventHandler(mainServer_StatusChanged);
+                // Hook the StatusChanged event handler to mainServer_StatusChanged
+                ChatServer.StatusChanged += new StatusChangedEventHandler(mainServer_StatusChanged);
 
-            // Start listening for connections
-            mainServer.StartListening();
+                // Start listening for connections
+                mainServer.StartListening();
 
-            // Show that we started to listen for connections
-            txtLog.AppendText("Monitoring for connections...\r\n");
+                // Show that we started to listen for connections
+                txtLog.AppendText("Monitoring for connections...\r\n");
+                btnStartListening.Text = "Stop Listening";
+            }
+            else
+            {
+                mainServer.StopListening();
+                btnStartListening.Text = "Start Listening";
+            }
         }
 
         public void mainServer_StatusChanged(object sender, StatusChangedEventArgs e)

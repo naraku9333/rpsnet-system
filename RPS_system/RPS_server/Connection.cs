@@ -35,6 +35,7 @@ namespace RPS_server
 
         private void CloseConnection()
         {
+            thrSender.Abort();
             // Close the currently open objects
             tcpClient.Close();
             srReceiver.Close();

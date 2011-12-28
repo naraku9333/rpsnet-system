@@ -210,6 +210,14 @@ namespace RPS_server
             // Start the new tread that hosts the listener
             thrListener = new Thread(KeepListening);
             thrListener.Start();
+            
+        }
+
+        public void StopListening()
+        {
+            thrListener.Abort();
+            tlsClient.Stop();
+            ServRunning = false;
         }
 
         private void KeepListening()
