@@ -55,7 +55,7 @@ namespace RPS_server
             if (currUser != "")
             {
                 // Store the user name in the hash table
-                if (ChatServer.htUsers.Contains(currUser) == true)
+                if (GameServer.htUsers.Contains(currUser) == true)
                 {
                     // 0 means not connected
                     swSender.WriteLine("0|This username already exists.");
@@ -75,16 +75,16 @@ namespace RPS_server
 
                 else
                 {
-                    ++ChatServer.Count;
+                    ++GameServer.Count;
                     // 1 means connected successfully
                     swSender.WriteLine("1");
                     swSender.Flush();
 
                     //send (VERY BASIC) id number
-                    swSender.WriteLine("8" + "|" + ChatServer.Count.ToString());
+                    swSender.WriteLine("8" + "|" + GameServer.Count.ToString());
                     swSender.Flush();
                     // Add the user to the hash tables and start listening for messages from him
-                    ChatServer.AddUser(tcpClient, currUser);
+                    GameServer.AddUser(tcpClient, currUser);
                 }
             }
             else
@@ -102,12 +102,12 @@ namespace RPS_server
                     // If it's invalid, remove the user
                     if (strResponse == null)
                     {
-                        flag = ChatServer.RemoveUser(tcpClient);
+                        flag = GameServer.RemoveUser(tcpClient);
                     }
                     else
                     {
                         // Otherwise send the message to all the other users
-                        ChatServer.SendMessage(currUser, strResponse);
+                        GameServer.SendMessage(currUser, strResponse);
                     }
                 }
             }
@@ -115,7 +115,7 @@ namespace RPS_server
             catch
             {
                 // If anything went wrong with this user, disconnect him
-                ChatServer.RemoveUser(tcpClient);
+                GameServer.RemoveUser(tcpClient);
             }
         }
     }

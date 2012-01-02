@@ -38,13 +38,17 @@ namespace RPS_server
     }
 
     public delegate void StatusChangedEventHandler(object sender, StatusChangedEventArgs e);
-    class ChatServer
+
+    class GameServer
     {
         // This hash table stores users and connections (browsable by user)
-        public static Hashtable htUsers = new Hashtable(30); // 30 users at one time limit
+        public static Hashtable htUsers = new Hashtable(100); // 100 users at one time limit
 
         // This hash table stores connections and users (browsable by connection)
-        public static Hashtable htConnections = new Hashtable(30); // 30 users at one time limit
+        public static Hashtable htConnections = new Hashtable(100); // 100 users at one time limit
+
+        //
+        public static Hashtable htRooms = new Hashtable(50);// 25 games at a time
 
         // Will store the IP address passed to it
         private IPAddress ipAddress;
@@ -58,7 +62,7 @@ namespace RPS_server
         public static int Count { get; set; }
 
         // The constructor sets the IP address to the one retrieved by the instantiating object
-        public ChatServer(IPAddress address)
+        public GameServer(IPAddress address)
         {
             ipAddress = address;
         }
@@ -76,8 +80,8 @@ namespace RPS_server
         public static void AddUser(TcpClient tcpUser, string strUsername)
         {
             // First add the username and associated connection to both hash tables
-            ChatServer.htUsers.Add(strUsername, tcpUser);
-            ChatServer.htConnections.Add(tcpUser, strUsername);
+            GameServer.htUsers.Add(strUsername, tcpUser);
+            GameServer.htConnections.Add(tcpUser, strUsername);
             
             // Tell of the new connection to all other users and to the server form
             SendAdminMessage(htConnections[tcpUser] + " has joined us");
@@ -93,8 +97,8 @@ namespace RPS_server
                 SendAdminMessage(htConnections[tcpUser] + " has left us");
 
                 // Remove the user from the hash table
-                ChatServer.htUsers.Remove(ChatServer.htConnections[tcpUser]);
-                ChatServer.htConnections.Remove(tcpUser);
+                GameServer.htUsers.Remove(GameServer.htConnections[tcpUser]);
+                GameServer.htConnections.Remove(tcpUser);
                 return true;
             }
             else
@@ -112,21 +116,20 @@ namespace RPS_server
             }
         }
  
-        // Send administrative messages
+        // Send administrative messages to all clients
         public static void SendAdminMessage(string Message)
         {
             StreamWriter swSenderSender;
 
             // First of all, show in our application who says what
-            //System.Console.WriteLine("Administrator: " + Message);
             e = new StatusChangedEventArgs("Administrator: " + Message);
             OnStatusChanged(e);
  
             // Create an array of TCP clients, the size of the number of users we have
-            TcpClient[] tcpClients = new TcpClient[ChatServer.htUsers.Count];
+            TcpClient[] tcpClients = new TcpClient[GameServer.htUsers.Count];
 
             // Copy the TcpClient objects into the array
-            ChatServer.htUsers.Values.CopyTo(tcpClients, 0);
+            GameServer.htUsers.Values.CopyTo(tcpClients, 0);
 
             // Loop through the list of TCP clients
             for (int i = 0; i < tcpClients.Length; i++)
@@ -153,6 +156,7 @@ namespace RPS_server
         }
  
         // Send messages from one user to all the others
+        //TODO change to send to only one client
         public static void SendMessage(string From, string Message)
         {
             StreamWriter swSenderSender;
@@ -163,10 +167,10 @@ namespace RPS_server
             OnStatusChanged(e);
 
             // Create an array of TCP clients, the size of the number of users we have
-            TcpClient[] tcpClients = new TcpClient[ChatServer.htUsers.Count];
+            TcpClient[] tcpClients = new TcpClient[GameServer.htUsers.Count];
 
             // Copy the TcpClient objects into the array
-            ChatServer.htUsers.Values.CopyTo(tcpClients, 0);
+            GameServer.htUsers.Values.CopyTo(tcpClients, 0);
 
             // Loop through the list of TCP clients
             for (int i = 0; i < tcpClients.Length; i++)

@@ -1,10 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
 using System.Net;
 using System.Net.Sockets;
 using System.IO;
@@ -13,7 +7,7 @@ using System.Windows.Forms;
 
 namespace RockPaperScissorsGUI
 {
-    public partial class Form1 : Form
+    public partial class ClientForm : Form
     {
         private Random rand;
         private int cMove, pMove;
@@ -29,18 +23,21 @@ namespace RockPaperScissorsGUI
 
         // Needed to set the form to a "disconnected" state from another thread
         private delegate void CloseConnectionCallback(string strReason);
+
+        private delegate void UpdateCMove(int move);
+
         private Thread thrMessaging, thrMove;
         private IPAddress ipAddr;
         private bool Connected;
         private int idNum;
-        
+        private string opponent;
         private enum choices {
             Rock = 1,
             Paper,
             Scissor
         }
 
-        public Form1()
+        public ClientForm()
         {
             cMove = 0;
             InitializeComponent();
@@ -80,14 +77,17 @@ namespace RockPaperScissorsGUI
             if (Connected)
             {
                 SendMove();
-
+                opponent = "Player2";
                 //wait until move recieved, this will lock thread!
                 //TODO: add time limit to recieve ie: wait 30 secs then send random move
                 while (cMove == 0)
                     cMove = ReceiveMove();
             }
             else
+            {
+                opponent = "Computer";
                 cMove = rand.Next(1, 3);
+            }
            
             if (cMove != 0)
             {
@@ -98,7 +98,7 @@ namespace RockPaperScissorsGUI
                 else if (((cMove > pMove) && ((cMove - pMove) < 2))
                     || ((cMove < pMove) && (pMove - cMove) > 1))
                 {
-                    txtResult.Text = (choices)cMove + " beats " + (choices)pMove + " \r\nOpponent Wins!!!";
+                    txtResult.Text = (choices)cMove + " beats " + (choices)pMove + " \r\n"+opponent+" Wins!!!";
                 }
                 else
                     txtResult.Text = (choices)pMove + " beats " + (choices)cMove + " \r\nYou Win!!!";
@@ -210,24 +210,29 @@ namespace RockPaperScissorsGUI
                 // Show the messages in the log TextBox
                 string s = srReceiver.ReadLine();
                 this.Invoke(new UpdateLogCallback(this.UpdateLog), new object[] { s });
-
-                //receive id number
-                srReceiver = new StreamReader(tcpServer.GetStream());
-               
+                
                 if(s[0] == '8')
                     idNum = (int)Char.GetNumericValue(s[2]);
 
                 if (s[0] == '9' && s[2] != Char.Parse(idNum.ToString()))
                 {
-                    cMove = (int)Char.GetNumericValue(s[4]);
+                    int move = (int)Char.GetNumericValue(s[4]);
+                    this.Invoke(new UpdateCMove(this.SetCMove), new object[] { move }); 
                 }
             }
+        }
+
+        private void SetCMove(int move)
+        {
+            cMove = move;
         }
 
         private void UpdateLog(string strMessage)
         {
             // Append text also scrolls the TextBox to the bottom each time
-            txtLog.AppendText(strMessage + "\r\n");
+            //dont show ID's or moves
+            if(strMessage[0] != '8' && strMessage[0] != '9')
+                txtLog.AppendText(strMessage + "\r\n");
         }
 
         // Closes a current connection

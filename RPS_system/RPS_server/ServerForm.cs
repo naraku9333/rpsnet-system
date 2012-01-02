@@ -14,21 +14,14 @@ using System.Windows.Forms;
 
 namespace RPS_server
 {
-    public partial class Form1 : Form
+    public partial class ServerForm : Form
     {
-        private ChatServer mainServer;
+        private GameServer mainServer;
 
-        public Form1()
+        public ServerForm()
         {
             InitializeComponent();
-            Application.ApplicationExit += new EventHandler(OnApplicationExit);
-        }
-
-        // The event handler for application exit
-        public void OnApplicationExit(object sender, EventArgs e)
-        {
-           
-        }
+        }        
 
         private delegate void UpdateStatusCallback(string strMessage);
 
@@ -41,10 +34,10 @@ namespace RPS_server
                 IPAddress ipAddr = IPAddress.Parse(txtIp.Text.ToString());
 
                 // Create a new instance of the ChatServer object
-                mainServer = new ChatServer(ipAddr);
+                mainServer = new GameServer(ipAddr);
 
                 // Hook the StatusChanged event handler to mainServer_StatusChanged
-                ChatServer.StatusChanged += new StatusChangedEventHandler(mainServer_StatusChanged);
+                GameServer.StatusChanged += new StatusChangedEventHandler(mainServer_StatusChanged);
 
                 // Start listening for connections
                 mainServer.StartListening();
