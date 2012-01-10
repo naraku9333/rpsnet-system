@@ -14,8 +14,22 @@
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
-            {
+            {              
                 components.Dispose();
+                if (swSender != null)
+                {
+                    swSender.Close();
+                    swSender.Dispose();
+                }
+                if (srReceiver != null)
+                {
+                    srReceiver.Close();
+                    srReceiver.Dispose();
+                }
+                if (tcpServer != null)
+                {
+                    tcpServer.Close();
+                }
             }
             base.Dispose(disposing);
         }
@@ -42,6 +56,10 @@
             this.btnSend = new System.Windows.Forms.Button();
             this.txtIP = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
+            this.listBox1 = new System.Windows.Forms.ListBox();
+            this.btnJoinGame = new System.Windows.Forms.Button();
+            this.btnNewGame = new System.Windows.Forms.Button();
+            this.label3 = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // button1
@@ -128,7 +146,7 @@
             this.btnConnect.Font = new System.Drawing.Font("Microsoft Sans Serif", 10.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnConnect.Location = new System.Drawing.Point(364, 12);
             this.btnConnect.Name = "btnConnect";
-            this.btnConnect.Size = new System.Drawing.Size(102, 40);
+            this.btnConnect.Size = new System.Drawing.Size(105, 40);
             this.btnConnect.TabIndex = 8;
             this.btnConnect.Text = "Connect";
             this.btnConnect.UseVisualStyleBackColor = true;
@@ -159,6 +177,7 @@
             this.txtIP.Name = "txtIP";
             this.txtIP.Size = new System.Drawing.Size(143, 22);
             this.txtIP.TabIndex = 11;
+            this.txtIP.Text = "127.0.0.1";
             // 
             // label2
             // 
@@ -169,11 +188,53 @@
             this.label2.TabIndex = 12;
             this.label2.Text = "Server IP:";
             // 
-            // Form1
+            // listBox1
+            // 
+            this.listBox1.FormattingEnabled = true;
+            this.listBox1.ItemHeight = 16;
+            this.listBox1.Location = new System.Drawing.Point(499, 11);
+            this.listBox1.Name = "listBox1";
+            this.listBox1.Size = new System.Drawing.Size(281, 180);
+            this.listBox1.TabIndex = 13;
+            this.listBox1.Visible = false;
+            // 
+            // btnJoinGame
+            // 
+            this.btnJoinGame.Location = new System.Drawing.Point(672, 211);
+            this.btnJoinGame.Name = "btnJoinGame";
+            this.btnJoinGame.Size = new System.Drawing.Size(108, 28);
+            this.btnJoinGame.TabIndex = 15;
+            this.btnJoinGame.Text = "Join Game";
+            this.btnJoinGame.UseVisualStyleBackColor = true;
+            this.btnJoinGame.Click += new System.EventHandler(this.btnJoinGame_Click);
+            // 
+            // btnNewGame
+            // 
+            this.btnNewGame.Location = new System.Drawing.Point(499, 211);
+            this.btnNewGame.Name = "btnNewGame";
+            this.btnNewGame.Size = new System.Drawing.Size(108, 28);
+            this.btnNewGame.TabIndex = 14;
+            this.btnNewGame.Text = "New Game";
+            this.btnNewGame.UseVisualStyleBackColor = true;
+            this.btnNewGame.Click += new System.EventHandler(this.btnNewGame_Click);
+            // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(387, 74);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(0, 17);
+            this.label3.TabIndex = 16;
+            // 
+            // ClientForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(489, 625);
+            this.ClientSize = new System.Drawing.Size(492, 260);
+            this.Controls.Add(this.label3);
+            this.Controls.Add(this.btnJoinGame);
+            this.Controls.Add(this.btnNewGame);
+            this.Controls.Add(this.listBox1);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.txtIP);
             this.Controls.Add(this.btnSend);
@@ -188,7 +249,7 @@
             this.Controls.Add(this.button2);
             this.Controls.Add(this.button1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.Name = "Form1";
+            this.Name = "ClientForm";
             this.Text = "RockPaperScissors";
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -210,6 +271,10 @@
         private System.Windows.Forms.Button btnSend;
         private System.Windows.Forms.TextBox txtIP;
         private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.ListBox listBox1;
+        private System.Windows.Forms.Button btnJoinGame;
+        private System.Windows.Forms.Button btnNewGame;
+        private System.Windows.Forms.Label label3;
 
     }
 }

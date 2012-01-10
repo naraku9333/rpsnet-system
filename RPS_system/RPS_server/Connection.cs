@@ -7,6 +7,19 @@ using System.IO;
 using System.Threading;
 using System.Collections;
 
+/**
+ * Message Codes:
+ * 0 - error
+ * 1 - success
+ * 2 - request game list
+ * 3 - game list follows - 3|recipient id|num items|item1 gameid|item1 creater name|item2...
+ * 4 - create new game - 4|id| <game id will follow>
+ * 5 - join game - 5|id|player id
+ * 6 -  
+ * 7 - game id - 7|game id
+ * 8 - client id - 8|id
+ * 9 - player move 9|game id|player id|move
+ * */
 namespace RPS_server
 {
     // This class handels connections; there will be as many instances of it as there will be connected users
@@ -81,7 +94,7 @@ namespace RPS_server
                     swSender.Flush();
 
                     //send (VERY BASIC) id number
-                    swSender.WriteLine("8" + "|" + GameServer.Count.ToString());
+                    swSender.WriteLine("8|" + GameServer.Count.ToString());
                     swSender.Flush();
                     // Add the user to the hash tables and start listening for messages from him
                     GameServer.AddUser(tcpClient, currUser);
@@ -89,8 +102,7 @@ namespace RPS_server
             }
             else
             {
-                CloseConnection();
-                return;
+                CloseConnection();             
             }
             
             try
@@ -104,6 +116,41 @@ namespace RPS_server
                     {
                         flag = GameServer.RemoveUser(tcpClient);
                     }
+                    else if (strResponse[0] == '2')//request game list
+                    {
+                        int idNum = Convert.ToInt32(Char.GetNumericValue(strResponse[2]));
+                        //GameServer.SendGameList(idNum, currUser);
+
+                    }
+                    else if(strResponse[0] == '4')//create a new game 
+                    {
+                        int uid = Convert.ToInt32(Char.GetNumericValue(strResponse[2]));
+                        GameServer.AddNewGame(currUser, uid);
+                        swSender.WriteLine("7|" + GameServer.Games.ToString());
+                        swSender.Flush();
+                    }
+                    else if (strResponse[0] == '5')//join game
+                    {
+                        int gid = Convert.ToInt32(char.GetNumericValue(strResponse[2]));
+                        int uid = Convert.ToInt32(char.GetNumericValue(strResponse[4]));
+                        GameServer.JoinGame(currUser, uid, gid);
+                    }
+                    else if(strResponse[0] == '9')//parse and foreward move to correct client
+                    {
+                        int gid = Convert.ToInt32(char.GetNumericValue(strResponse[2]));
+                        int uid = Convert.ToInt32(char.GetNumericValue(strResponse[4]));
+                        int move = Convert.ToInt32(char.GetNumericValue(strResponse[6]));
+                        string p;
+                        if(((Game)GameServer.htGames[gid]).player1 == uid)
+                        {
+                            p = ((Game)GameServer.htGames[gid]).strPlayer2;                                                        
+                        }
+                        else
+                        {
+                            p = ((Game)GameServer.htGames[gid]).strPlayer1;
+                        }
+                        GameServer.SendPrivateMessage(p, "9|" + move.ToString());
+                    }
                     else
                     {
                         // Otherwise send the message to all the other users
@@ -111,7 +158,6 @@ namespace RPS_server
                     }
                 }
             }
-
             catch
             {
                 // If anything went wrong with this user, disconnect him

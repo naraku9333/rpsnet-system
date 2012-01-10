@@ -6,11 +6,24 @@ using System.Net.Sockets;
 using System.IO;
 using System.Threading;
 using System.Collections;
+using System.Runtime.Serialization.Formatters.Binary;
 
+/**
+ * Message Codes:
+ * 0 - no connection
+ * 1 - connection succesfull
+ * 2 - unused
+ * 3 - unused
+ * 4 - unused
+ * 5 - unused
+ * 6 - unused
+ * 7 - unused
+ * 8 - client id follows
+ * 9 - player move
+ * */
 namespace RPS_server
 {
     // Holds the arguments for the StatusChanged event
-
     public class StatusChangedEventArgs : EventArgs
     {
         // The argument we're interested in is a message describing the event
@@ -37,29 +50,50 @@ namespace RPS_server
         }
     }
 
-    public delegate void StatusChangedEventHandler(object sender, StatusChangedEventArgs e);
+    //hold individual game data
+    [Serializable]
+    class Game
+    {
+        public Game(int gid, int uid, string name)
+        {
+            gameid = gid;
+            player1 = uid;
+            strPlayer1 = name;
+        }
+
+        public int gameid,//the game id, key in hashtable
+            player1,//player1 id (game creater)
+            player2;//player2 id
+
+        public string strPlayer1,//usernames
+            strPlayer2;
+    }
+
+   public delegate void StatusChangedEventHandler(object sender, StatusChangedEventArgs e);
 
     class GameServer
     {
-        // This hash table stores users and connections (browsable by user)
+        // hash tables to store users and connections (browsable by user or connection)
+        //games table (browsable by game ID)
         public static Hashtable htUsers = new Hashtable(100); // 100 users at one time limit
-
-        // This hash table stores connections and users (browsable by connection)
-        public static Hashtable htConnections = new Hashtable(100); // 100 users at one time limit
-
-        //
-        public static Hashtable htRooms = new Hashtable(50);// 25 games at a time
+        public static Hashtable htConnections = new Hashtable(100); // 100 users at one time limit     
+        public static Hashtable htGames = new Hashtable(50);// 25 games at a time
 
         // Will store the IP address passed to it
         private IPAddress ipAddress;
         private TcpClient tcpClient;
 
+        private static ArrayList list = new ArrayList();
+
         // The event and its argument will notify the form when a user has connected, disconnected, send message, etc.
         public static event StatusChangedEventHandler StatusChanged;
         private static StatusChangedEventArgs e;
-        private static int count;
 
+        private static int count;
         public static int Count { get; set; }
+
+        private static int games;
+        public static int Games { get; set; }
 
         // The constructor sets the IP address to the one retrieved by the instantiating object
         public GameServer(IPAddress address)
@@ -68,12 +102,10 @@ namespace RPS_server
         }
 
         // The thread that will hold the connection listener
-        private Thread thrListener;
-
         // The TCP object that listens for connections
+        private Thread thrListener, thrList;
         private TcpListener tlsClient;
 
-        // Will tell the while loop to keep monitoring for connections
         bool ServRunning = false;
 
         // Add the user to the hash tables
@@ -83,7 +115,6 @@ namespace RPS_server
             GameServer.htUsers.Add(strUsername, tcpUser);
             GameServer.htConnections.Add(tcpUser, strUsername);
             
-            // Tell of the new connection to all other users and to the server form
             SendAdminMessage(htConnections[tcpUser] + " has joined us");
         }
 
@@ -93,10 +124,8 @@ namespace RPS_server
             // If the user is there
             if (htConnections[tcpUser] != null)
             {
-                // First show the information and tell the other users about the disconnection
                 SendAdminMessage(htConnections[tcpUser] + " has left us");
 
-                // Remove the user from the hash table
                 GameServer.htUsers.Remove(GameServer.htConnections[tcpUser]);
                 GameServer.htConnections.Remove(tcpUser);
                 return true;
@@ -125,26 +154,20 @@ namespace RPS_server
             e = new StatusChangedEventArgs("Administrator: " + Message);
             OnStatusChanged(e);
  
-            // Create an array of TCP clients, the size of the number of users we have
             TcpClient[] tcpClients = new TcpClient[GameServer.htUsers.Count];
 
-            // Copy the TcpClient objects into the array
             GameServer.htUsers.Values.CopyTo(tcpClients, 0);
 
-            // Loop through the list of TCP clients
             for (int i = 0; i < tcpClients.Length; i++)
             {
-                // Try sending a message to each
                 try
                 {
-                    // If the message is blank or the connection is null, break out
                     if (Message.Trim() == "" || tcpClients[i] == null)
                     {
                         continue;
                     }
-                    // Send the message to the current user in the loop
                     swSenderSender = new StreamWriter(tcpClients[i].GetStream());
-                    swSenderSender.WriteLine("Administrator: " + Message);                
+                    swSenderSender.WriteLine(Message);                
                     swSenderSender.Flush();
                     swSenderSender = null;
                 }
@@ -162,30 +185,23 @@ namespace RPS_server
             StreamWriter swSenderSender;
  
             // First of all, show in our application who says what
-            //System.Console.WriteLine(From + " says: " + Message);
             e = new StatusChangedEventArgs(From + " says: " + Message);
             OnStatusChanged(e);
 
             // Create an array of TCP clients, the size of the number of users we have
             TcpClient[] tcpClients = new TcpClient[GameServer.htUsers.Count];
 
-            // Copy the TcpClient objects into the array
             GameServer.htUsers.Values.CopyTo(tcpClients, 0);
 
-            // Loop through the list of TCP clients
             for (int i = 0; i < tcpClients.Length; i++)
             {
-                // Try sending a message to each
                 try
                 {
-                    // If the message is blank or the connection is null, break out
                     if (Message.Trim() == "" || tcpClients[i] == null)
                     {
                         continue;
                     }
-                    // Send the message to the current user in the loop
                     swSenderSender = new StreamWriter(tcpClients[i].GetStream());
-                    //swSenderSender.WriteLine(From + " says: " + Message);
                     swSenderSender.WriteLine(Message);
                     swSenderSender.Flush();
                     swSenderSender = null;
@@ -197,24 +213,37 @@ namespace RPS_server
             }
         }
 
+        public static void SendPrivateMessage(string to, string msg)
+        {
+            StreamWriter sw;            
+            
+            try
+            {
+                sw = new StreamWriter(((TcpClient)GameServer.htUsers[to]).GetStream());
+                sw.WriteLine(msg);
+                sw.Flush();
+            }
+            catch // If there was a problem, the user is not there anymore, remove him
+            {
+                RemoveUser((TcpClient)GameServer.htUsers[to]);
+            }            
+        }
+
         public void StartListening()
         {
             // Get the IP of the first network device, however this can prove unreliable on certain configurations
             IPAddress ipaLocal = ipAddress;
 
-            // Create the TCP listener object using the IP of the server and the specified port
             tlsClient = new TcpListener(ipaLocal, 9333);
-
-            // Start the TCP listener and listen for connections
             tlsClient.Start();
-
-            // The while loop will check for true in this before checking for connections
             ServRunning = true;
 
-            // Start the new tread that hosts the listener
             thrListener = new Thread(KeepListening);
             thrListener.Start();
-            
+
+            //broadcast gamelist to all clients on a new thread
+            thrList = new Thread(SendGameList);
+            thrList.Start();
         }
 
         public void StopListening()
@@ -234,6 +263,34 @@ namespace RPS_server
 
                 // Create a new instance of Connection
                 Connection newConnection = new Connection(tcpClient);
+            }
+        }
+
+        public static void AddNewGame(string currUser, int uid)
+        {
+            ++GameServer.Games;
+            Game g = new Game(GameServer.Games, uid, currUser);
+            GameServer.htGames.Add(GameServer.Games, g);
+            list.Add(g);
+        }
+
+        public static void JoinGame(string currUser, int uid, int gid)
+        {
+            ((Game)GameServer.htGames[gid]).strPlayer2 = currUser;
+            ((Game)GameServer.htGames[gid]).player2 = uid;
+
+        }
+        
+        private void SendGameList()
+        {
+            while (ServRunning == true)
+            {
+                // 3|recipient id|num items, 0=all|item1 gameid|item1 creater name|item2...
+                string msg = "3|0|" + list.Count.ToString()+"|";
+                for (int i = 0; i < list.Count; ++i)
+                    msg += ((Game)list[i]).gameid.ToString() + "|" + ((Game)list[i]).strPlayer1+"|"+((Game)list[i]).strPlayer2+"|";// bf.Serialize(swSenderSender,list[i]);
+                SendAdminMessage(msg);
+                Thread.Sleep(3000);
             }
         }
     }

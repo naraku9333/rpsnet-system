@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Net;
 using System.Net.Sockets;
 using System.IO;
@@ -9,29 +10,33 @@ namespace RockPaperScissorsGUI
 {
     public partial class ClientForm : Form
     {
+        private static ArrayList list = new ArrayList();
+        public static ArrayList List{ get; set; }
+
         private Random rand;
         private int cMove, pMove;
 
-        // Will hold the user name
         private string UserName = "Unknown";
         private StreamWriter swSender;
         private StreamReader srReceiver;
         private TcpClient tcpServer;
    
-        // Needed to update the form with messages from another thread
+        //delegates needed for form variable updates
         private delegate void UpdateLogCallback(string strMessage);
-
-        // Needed to set the form to a "disconnected" state from another thread
         private delegate void CloseConnectionCallback(string strReason);
-
+        private delegate void UpdateListBoxCallback(string msg);
+        private delegate void ClearListBoxCallback();
         private delegate void UpdateCMove(int move);
+        private delegate void IDCALLBACK(int uid, int gid);
 
         private Thread thrMessaging, thrMove;
         private IPAddress ipAddr;
         private bool Connected;
-        private int idNum;
+        private int idNum, gameID;
         private string opponent;
-        private enum choices {
+
+        private enum choices 
+        {
             Rock = 1,
             Paper,
             Scissor
@@ -46,6 +51,11 @@ namespace RockPaperScissorsGUI
            // InitializeConnection();
         }
 
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+        
         // The event handler for application exit
         public void OnApplicationExit(object sender, EventArgs e)
         {
@@ -67,16 +77,17 @@ namespace RockPaperScissorsGUI
         {
             //pMove = 1;
             pMove = (int)Char.GetNumericValue(((Button)sender).Name.ToString()[6]);
-            findWinner();
+            findWinner(sender);
         }
         
         /**
          * Send and recieve moves and perform logic
          * */
-        private void findWinner(){
+        private void findWinner(object sender){
+            ((Button)sender).Enabled = false;
             if (Connected)
             {
-                SendMove();
+                SendMessage("9|" + gameID.ToString() + "|" + idNum.ToString() + "|" + pMove.ToString());//the move
                 opponent = "Player2";
                 //wait until move recieved, this will lock thread!
                 //TODO: add time limit to recieve ie: wait 30 secs then send random move
@@ -102,8 +113,10 @@ namespace RockPaperScissorsGUI
                 }
                 else
                     txtResult.Text = (choices)pMove + " beats " + (choices)cMove + " \r\nYou Win!!!";
+
                 cMove = 0;
             }
+            ((Button)sender).Enabled = true;
         }
 
         private void InitializeConnection()
@@ -120,69 +133,54 @@ namespace RockPaperScissorsGUI
             try
             {
                 tcpServer.Connect(ipAddr, 9333);
+                Connected = true;
             }
             catch(Exception e)
             {
+                Connected = false;
                 MessageBox.Show("exception: "+e.ToString());
             }
+            if (Connected)
+            {
+                UserName = txtUser.Text.ToString();
 
-            // Helps us track whether we're connected or not
-            Connected = true;
+                // Send the desired username to the server
+                swSender = new StreamWriter(tcpServer.GetStream());
+                swSender.WriteLine(UserName);
+                swSender.Flush();
+               // list = new Array();
 
-            UserName = txtUser.Text.ToString();
-
-            // Send the desired username to the server
-            swSender = new StreamWriter(tcpServer.GetStream());
-            swSender.WriteLine(UserName);
-            swSender.Flush();
-
-            // Start the thread for receiving messages and further communication
-            thrMessaging = new Thread(new ThreadStart(ReceiveMessages));
-            thrMessaging.Start();
-            //Thread.Sleep(10000);
-            //thrMessaging.Suspend();
-
-            // Start the thread for receiving other player move
-            //thrMove = new Thread(new ThreadStart(ReceiveMove));
-            //thrMove.Start();
+                // Start the thread for receiving messages and further communication
+                thrMessaging = new Thread(new ThreadStart(ReceiveMessages));
+                thrMessaging.Start();
+            }          
         }
 
-        //thread version
-        //private void ReceiveMove()
-        //{
-        //    srReceiver = new StreamReader(tcpServer.GetStream());
-        //    string s = srReceiver.ReadLine();
-        //    if (s[0] == '9' && s[2] != Char.Parse(idNum.ToString()))
-        //    {
-        //        cMove =  (int)Char.GetNumericValue(s[4]);
-        //    }
-        //}
-
-        //ONLY HANDLES SINGLE DIGIT ID
         private int ReceiveMove()
         {
             srReceiver = new StreamReader(tcpServer.GetStream());
             string s = srReceiver.ReadLine();
-            if (s[0] == '9' && s[2] != Char.Parse(idNum.ToString()))
+            if (s[0] == '9' && s.Length > 2)
             {
-                return (int)Char.GetNumericValue(s[4]);
+                return (int)Char.GetNumericValue(s[2]);
             }
             return 0;
         }
 
-        private void SendMove()
+        //send any string to server
+        //does not validate string
+        private void SendMessage(string msg)
         {
             swSender = new StreamWriter(tcpServer.GetStream());
-            swSender.WriteLine("9|" + idNum.ToString() + "|" + pMove.ToString());
+            swSender.WriteLine(msg);
             swSender.Flush();
         }
 
+        //receive messages from server
+        //parse code (first digit) for action to take
         private void ReceiveMessages()
         {
-            // Receive the response from the server
             srReceiver = new StreamReader(tcpServer.GetStream());
-
-            // If the first character of the response is 1, connection was successful
             string ConResponse = srReceiver.ReadLine();
 
             // If the first character is a 1, connection was successful
@@ -194,39 +192,85 @@ namespace RockPaperScissorsGUI
             else // If the first character is not a 1 (probably a 0), the connection was unsuccessful
             {
                 string Reason = "Not Connected: ";
-
-                // Extract the reason out of the response message. The reason starts at the 3rd character
                 Reason += ConResponse.Substring(2, ConResponse.Length - 2);
 
                 // Update the form with the reason why we couldn't connect
                 this.Invoke(new CloseConnectionCallback(this.CloseConnection), new object[] { Reason });
 
-                // Exit the method
                 return;
             }
-            //While we are successfully connected, read incoming lines from the server
+
             while (Connected)
             {
                 // Show the messages in the log TextBox
                 string s = srReceiver.ReadLine();
                 this.Invoke(new UpdateLogCallback(this.UpdateLog), new object[] { s });
-                
-                if(s[0] == '8')
-                    idNum = (int)Char.GetNumericValue(s[2]);
 
-                if (s[0] == '9' && s[2] != Char.Parse(idNum.ToString()))
+                if (s[0] == '8')//set player id
                 {
-                    int move = (int)Char.GetNumericValue(s[4]);
-                    this.Invoke(new UpdateCMove(this.SetCMove), new object[] { move }); 
+                    idNum = Convert.ToInt32(Char.GetNumericValue(s[2]));
+                    this.Invoke(new IDCALLBACK(this.IDSHOW), new object[] { idNum, gameID });//dbg
+
+                }
+                else if(s[0] == '7')//set game id
+                {
+                    gameID = Convert.ToInt32(Char.GetNumericValue(s[2]));
+                    this.Invoke(new IDCALLBACK(this.IDSHOW), new object[] { idNum, gameID });//dbg
+                }
+                else if (s[0] == '9')
+                {
+                    int move = (int)Char.GetNumericValue(s[2]);
+                    this.Invoke(new UpdateCMove(this.SetCMove), new object[] { move });
+                }// 3|recipient id|num items|item1 gameid|item1 creater name|item2...
+                else if (s[0] == '3')
+                {
+                    int j = 0;//number of items
+                    if ((j = Convert.ToInt32(Char.GetNumericValue(s[4]))) > 0)
+                    {
+                        int gameid; 
+                        String name1,
+                            name2;
+                        string msg;
+                        int k = 6;//extra counter
+                        this.Invoke(new ClearListBoxCallback(ClearListBox));
+                        for(int i = 0; i < j; ++i)
+                        {
+                            gameid = Convert.ToInt32(Char.GetNumericValue(s[k]));
+                            name1 = s.Substring(k+2, s.IndexOf('|', k+2) - (k+2));
+                            k = s.IndexOf('|', k + 2) +1;
+                            name2 = s.Substring(k, s.IndexOf('|', k) - k);
+                            msg = "GameID: " + gameid.ToString() + "    " + "P1: " + name1+" P2: "+name2;
+                            this.Invoke(new UpdateListBoxCallback(UpdateListBox), new object[] { msg });
+                            k = s.IndexOf('|', k) +1;
+                        }
+                    }
                 }
             }
         }
 
+        //clear listbox from a seperate thread (using a delegate)
+        private void ClearListBox() { listBox1.Items.Clear(); }
+
+        //update listbox from a seperate thread (using a delegate)
+        private void UpdateListBox(string s)
+        {
+            listBox1.Items.Add(s);
+            listBox1.Invalidate();
+        }
+
+        //dbg
+        private void IDSHOW(int x, int y)
+        {
+            label3.Text = "ID: "+x.ToString()+"  GID: "+y.ToString();
+        }
+
+        //update opponent move from a seperate thread (using a delegate)
         private void SetCMove(int move)
         {
             cMove = move;
         }
 
+        //update log textbox from a seperate thread (using a delegate)
         private void UpdateLog(string strMessage)
         {
             // Append text also scrolls the TextBox to the bottom each time
@@ -235,7 +279,7 @@ namespace RockPaperScissorsGUI
                 txtLog.AppendText(strMessage + "\r\n");
         }
 
-        // Closes a current connection
+        // Closes the current connection
         private void CloseConnection(string Reason)
         {
             // Show the reason why the connection is ending
@@ -251,6 +295,7 @@ namespace RockPaperScissorsGUI
             tcpServer.Close();
         }
 
+        //connect to server
         private void btnConnect_Click(object sender, EventArgs e)
         {
             if (!Connected)
@@ -258,8 +303,15 @@ namespace RockPaperScissorsGUI
                 if (txtUser.Text.ToString() != "" && txtIP.Text.ToString() != "")
                 {
                     InitializeConnection();
-                    if(Connected)
+                    if (Connected)
+                    {
                         btnConnect.Text = "Disconnect";
+                        ArrayList list = new ArrayList();
+                        while (list == null) { }
+                       
+                        listBox1.Visible = true;
+                        this.Width = 810;
+                    }
                 }
                 else
                     MessageBox.Show("Enter a valid username");
@@ -268,15 +320,33 @@ namespace RockPaperScissorsGUI
             {
                 CloseConnection("User request");
                 btnConnect.Text = "Connect";
+                listBox1.Visible = false;
+                this.Width = 510;
             }
         }
 
+        //send a text message to server
         private void btnSend_Click(object sender, EventArgs e)
         {
-            swSender = new StreamWriter(tcpServer.GetStream());
-            swSender.WriteLine(textBox1.Text);
-            swSender.Flush();
+            SendMessage(textBox1.Text);
             textBox1.Text = "";
+        }
+
+        private void btnNewGame_Click(object sender, EventArgs e)
+        {
+            SendMessage("4|" + idNum.ToString());
+        }
+
+        private void btnJoinGame_Click(object sender, EventArgs e)
+        {
+            if (listBox1.SelectedItems.Count != 0)
+            {
+                string s = listBox1.SelectedItem.ToString();
+                int gameid = Convert.ToInt32(Char.GetNumericValue(s[8]));
+                gameID = gameid;
+                SendMessage("5|" + gameid.ToString() + "|" + idNum.ToString());
+                label3.Text = "ID: " + idNum.ToString() + "  GID: " + gameID.ToString();//dbg
+            }
         }
     }
 }
