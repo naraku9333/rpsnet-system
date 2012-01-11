@@ -15,7 +15,7 @@ using System.Collections;
  * 3 - game list follows - 3|recipient id|num items|item1 gameid|item1 creater name|item2...
  * 4 - create new game - 4|id| <game id will follow>
  * 5 - join game - 5|id|player id
- * 6 -  
+ * 6 - chat message - 6|gid|message
  * 7 - game id - 7|game id
  * 8 - client id - 8|id
  * 9 - player move 9|game id|player id|move
