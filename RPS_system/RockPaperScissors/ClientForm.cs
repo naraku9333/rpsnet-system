@@ -26,10 +26,9 @@ namespace RockPaperScissorsGUI
         private delegate void CloseConnectionCallback(string strReason);
         private delegate void UpdateListBoxCallback(string msg);
         private delegate void ClearListBoxCallback();
-        private delegate void UpdateCMove(int move);
-        private delegate void IDCALLBACK(int uid, int gid);
+        private delegate void UpdateOpponentMoveCallback(int move);
 
-        private Thread thrMessaging, thrMove;
+        private Thread thrMessaging;
         private IPAddress ipAddr;
         private bool Connected;
         private int idNum, gameID;
@@ -71,27 +70,23 @@ namespace RockPaperScissorsGUI
                 tcpServer.Close();
             }
         }
-
-        //player choice button click
-        private void choice_Click(object sender, EventArgs e)
-        {
-            //pMove = 1;
-            pMove = (int)Char.GetNumericValue(((Button)sender).Name.ToString()[6]);
-            findWinner(sender);
-        }
         
         /**
          * Send and recieve moves and perform logic
          * */
-        private void findWinner(object sender){
-            ((Button)sender).Enabled = false;
+        private void findWinner(){
+
+            button1.Enabled = false;
+            button2.Enabled = false;
+            button3.Enabled = false;
             if (Connected)
             {
                 SendMessage("9|" + gameID.ToString() + "|" + idNum.ToString() + "|" + pMove.ToString());//the move
-                opponent = "Player2";
+                if (opponent == null)
+                    opponent = "Player2";
                 //wait until move recieved, this will lock thread!
                 //TODO: add time limit to recieve ie: wait 30 secs then send random move
-                while (cMove == 0)
+                while (cMove == 0) 
                     cMove = ReceiveMove();
             }
             else
@@ -116,17 +111,15 @@ namespace RockPaperScissorsGUI
 
                 cMove = 0;
             }
-            ((Button)sender).Enabled = true;
+            button1.Enabled = true;
+            button2.Enabled = true;
+            button3.Enabled = true;
         }
 
         private void InitializeConnection()
-        {
-            //TcpListener listener = new TcpListener(IPAddress.Any, 9333);
-            //listener.Start();
-            //TcpClient client = listener.AcceptTcpClient();
-
+        {            
             // Parse the IP address from the TextBox into an IPAddress object
-            ipAddr = IPAddress.Parse(txtIP.Text);//"127.0.0.1");
+            ipAddr = IPAddress.Parse(txtIP.Text);
 
             // Start a new TCP connections to the chat server
             tcpServer = new TcpClient();
@@ -144,16 +137,28 @@ namespace RockPaperScissorsGUI
             {
                 UserName = txtUser.Text.ToString();
 
-                // Send the desired username to the server
-                swSender = new StreamWriter(tcpServer.GetStream());
-                swSender.WriteLine(UserName);
-                swSender.Flush();
-               // list = new Array();
+                // Send the desired username to the server                
+                SendMessage(UserName);
 
                 // Start the thread for receiving messages and further communication
                 thrMessaging = new Thread(new ThreadStart(ReceiveMessages));
                 thrMessaging.Start();
             }          
+        }
+
+        private void CloseConnection(string Reason)
+        {
+            // Show the reason why the connection is ending
+            txtLog.AppendText(Reason + "\r\n");
+
+            // Close the objects
+            Connected = false;
+            srReceiver.Close();
+            srReceiver.Dispose();
+            thrMessaging.Abort();
+            swSender.Close();
+            swSender.Dispose();
+            tcpServer.Close();
         }
 
         private int ReceiveMove()
@@ -183,13 +188,13 @@ namespace RockPaperScissorsGUI
             srReceiver = new StreamReader(tcpServer.GetStream());
             string ConResponse = srReceiver.ReadLine();
 
-            // If the first character is a 1, connection was successful
+            //connection was successful
             if (ConResponse[0] == '1')
             {           
                 // Update the form to tell it we are now connected
                 this.Invoke(new UpdateLogCallback(this.UpdateLog), new object[] { "Connected Successfully!" });            
             }
-            else // If the first character is not a 1 (probably a 0), the connection was unsuccessful
+            else //connection was unsuccessful
             {
                 string Reason = "Not Connected: ";
                 Reason += ConResponse.Substring(2, ConResponse.Length - 2);
@@ -204,23 +209,21 @@ namespace RockPaperScissorsGUI
             {
                 // Show the messages in the log TextBox
                 string s = srReceiver.ReadLine();
-                this.Invoke(new UpdateLogCallback(this.UpdateLog), new object[] { s });
+                //this.Invoke(new UpdateLogCallback(this.UpdateLog), new object[] { s });
 
                 if (s[0] == '8')//set player id
                 {
                     idNum = Convert.ToInt32(Char.GetNumericValue(s[2]));
-                    this.Invoke(new IDCALLBACK(this.IDSHOW), new object[] { idNum, gameID });//dbg
 
                 }
                 else if(s[0] == '7')//set game id
                 {
                     gameID = Convert.ToInt32(Char.GetNumericValue(s[2]));
-                    this.Invoke(new IDCALLBACK(this.IDSHOW), new object[] { idNum, gameID });//dbg
                 }
-                else if (s[0] == '9')
+                else if (s[0] == '9' && s.Length > 2)
                 {
                     int move = (int)Char.GetNumericValue(s[2]);
-                    this.Invoke(new UpdateCMove(this.SetCMove), new object[] { move });
+                    this.Invoke(new UpdateOpponentMoveCallback(this.SetOpponentMove), new object[] { move });
                 }// 3|recipient id|num items|item1 gameid|item1 creater name|item2...
                 else if (s[0] == '3')
                 {
@@ -245,6 +248,12 @@ namespace RockPaperScissorsGUI
                         }
                     }
                 }
+                else if (s[0] == '6' && s.Length > 2)
+                {
+                    string txtmsg = s.Substring(2, s.Length - 2);
+                    if (txtmsg.Length > 0)
+                        this.Invoke(new UpdateLogCallback(this.UpdateLog), new object[] { txtmsg });
+                }
             }
         }
 
@@ -258,14 +267,8 @@ namespace RockPaperScissorsGUI
             listBox1.Invalidate();
         }
 
-        //dbg
-        private void IDSHOW(int x, int y)
-        {
-            label3.Text = "ID: "+x.ToString()+"  GID: "+y.ToString();
-        }
-
         //update opponent move from a seperate thread (using a delegate)
-        private void SetCMove(int move)
+        private void SetOpponentMove(int move)
         {
             cMove = move;
         }
@@ -278,24 +281,8 @@ namespace RockPaperScissorsGUI
             if(strMessage[0] != '8' && strMessage[0] != '9')
                 txtLog.AppendText(strMessage + "\r\n");
         }
-
-        // Closes the current connection
-        private void CloseConnection(string Reason)
-        {
-            // Show the reason why the connection is ending
-            txtLog.AppendText(Reason + "\r\n");
-
-            // Close the objects
-            Connected = false;
-            srReceiver.Close();
-            srReceiver.Dispose();
-            thrMessaging.Abort();
-            swSender.Close();
-            swSender.Dispose();
-            tcpServer.Close();
-        }
-
-        //connect to server
+        
+        //button clicks
         private void btnConnect_Click(object sender, EventArgs e)
         {
             if (!Connected)
@@ -310,7 +297,8 @@ namespace RockPaperScissorsGUI
                         while (list == null) { }
                        
                         listBox1.Visible = true;
-                        this.Width = 810;
+                        this.Width = 510;
+                        this.Height = 670;
                     }
                 }
                 else
@@ -322,13 +310,21 @@ namespace RockPaperScissorsGUI
                 btnConnect.Text = "Connect";
                 listBox1.Visible = false;
                 this.Width = 510;
+                this.Height = 305;
             }
         }
 
-        //send a text message to server
+        private void choice_Click(object sender, EventArgs e)
+        {
+            pMove = (int)Char.GetNumericValue(((Button)sender).Name.ToString()[6]);
+            findWinner();
+        }        
+
         private void btnSend_Click(object sender, EventArgs e)
         {
-            SendMessage(textBox1.Text);
+            string msg = UserName+" says: "+textBox1.Text;
+            SendMessage("6|"+msg);
+           // txtLog.AppendText(msg+"\r\n");
             textBox1.Text = "";
         }
 
@@ -345,7 +341,8 @@ namespace RockPaperScissorsGUI
                 int gameid = Convert.ToInt32(Char.GetNumericValue(s[8]));
                 gameID = gameid;
                 SendMessage("5|" + gameid.ToString() + "|" + idNum.ToString());
-                label3.Text = "ID: " + idNum.ToString() + "  GID: " + gameID.ToString();//dbg
+                opponent = s.Substring(17, s.IndexOf('P',17)-18);
+                label3.Text = "ID: " + idNum.ToString() + "  GID: " + gameID.ToString();//dbg                
             }
         }
     }
